@@ -1,57 +1,47 @@
-/*
-  Include express and passport packages.
-*/
+//backend_login.app.js
+require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const session = require('express-session');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
-
-/*
-  Include the user model for saving to MongoDB VIA mongoose
-*/
 const User = require("./models/user");
-
-/*
-  Database connection -- We are using MongoDB for this tutorial
-*/
 const MongoStore = require('connect-mongo');
 const mongoose = require('mongoose');
-const mongoString = 'mongodb+srv://gradediggers:KyunEwaHIp83UtbC@ivywschun.9dr1qud.mongodb.net/';
-mongoose.connect(mongoString);
-const db = mongoose.connection;
 
+
+//MongoDB connection
+const mongoUriTest  = 'mongodb+srv://gradediggers:KyunEwaHIp83UtbC@ivywschun.9dr1qud.mongodb.net/test';
+const sessionSecretTest = 'abcdefg';
+
+mongoose.connect(mongoUriTest);
+
+
+//Express Application Setup
 const app = express();
-
-/*
-  Session configuration and utilization of the MongoStore for storing
-  the session in the MongoDB database
-*/
+app.use(cors());
 app.use(express.urlencoded({ extended: false }));
+app.use(express.json()); //Parse JSON bodies
+
+//Session Configration
 app.use(session({
-  secret: 'your secret key',
+  secret: sessionSecretTest,
   resave: false,
   saveUninitialized: true,
-  store: new MongoStore({ mongoUrl: db.client.s.url })
+  store: new MongoStore({
+    mongoUrl: mongoUriTest // Use environment variable
+  })
 }));
 
-/*
-  Setup the local passport strategy, add the serialize and 
-  deserialize functions that only saves the ID from the user
-  by default.
-*/
-const strategy = new LocalStrategy(User.authenticate())
-passport.use(strategy);
+//Passport Configuration
+passport.use(new LocalStrategy(User.authenticate()));
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 app.use(passport.initialize());
 app.use(passport.session());
 
-/*
-  Beyond this point is all system specific routes.
-  All routes are here for simplicity of understanding the tutorial
-  /register -- Look closer at the package https://www.npmjs.com/package/passport-local-mongoose
-  for understanding why we don't try to encrypt the password within our application
-*/
+
+//Route handlers
 app.post('/register', function (req, res) {
   User.register(
     new User({ 
@@ -67,11 +57,7 @@ app.post('/register', function (req, res) {
   )
 })
 
-/*
-  Login routes -- This is where we will use the 'local'
-  passport authenciation strategy. If success, send to
-  /login-success, if failure, send to /login-failure
-*/
+
 app.post('/login', passport.authenticate('local', { 
   failureRedirect: '/login-failure', 
   successRedirect: '/login-success'
@@ -80,28 +66,25 @@ app.post('/login', passport.authenticate('local', {
 });
 
 app.get('/login-failure', (req, res, next) => {
-  console.log(req.session);
+  // console.log(req.session);
   res.send('Login Attempt Failed.');
 });
 
 app.get('/login-success', (req, res, next) => {
-  console.log(req.session);
+  // console.log(req.session);
   res.send('Login Attempt was successful.');
 });
 
-/*
-  Protected Route -- Look in the account controller for
-  how we ensure a user is logged in before proceeding.
-  We call 'isAuthenticated' to check if the request is 
-  authenticated or not. 
-*/
+
 app.get('/profile', function(req, res) {
-  console.log(req.session)
+  // console.log(req.session)
   if (req.isAuthenticated()) {
     res.json({ message: 'You made it to the secured profie' })
   } else {
     res.json({ message: 'You are not authenticated' })
   }
-})
+});
 
-app.listen(8001, () => { console.log('Server started.') });
+//Server initialization
+const Port = process.env.PORT || 5000;
+app.listen(Port, () => console.log("Server is running on port 5000"));
